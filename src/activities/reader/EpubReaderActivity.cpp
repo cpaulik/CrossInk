@@ -282,6 +282,26 @@ void EpubReaderActivity::onExit() {
   BOOKMARKS.unload();
   section.reset();
 
+  // Wallabag articles are ephemeral: archived in Wallabag on download, and
+  // deleted from the device on reader exit. Skip the Read-folder move and
+  // the keep-on-device branch entirely.
+  const std::string epubPath = epub->getPath();
+  const bool isWallabagArticle = epubPath.rfind("/wallabag/", 0) == 0;
+  if (isWallabagArticle) {
+    // Drop the openEpubPath so the home screen doesn't try to resume into a
+    // file that's about to disappear.
+    if (APP_STATE.openEpubPath == epubPath) {
+      APP_STATE.openEpubPath.clear();
+      APP_STATE.saveToFile();
+    }
+    epub->clearCache();  // removes the /.crosspoint/epub_<hash>/ directory wholesale
+    epub.reset();
+    if (Storage.exists(epubPath.c_str())) {
+      Storage.remove(epubPath.c_str());
+    }
+    return;
+  }
+
   if (pendingReadFolderMove) {
     const std::string srcEpubPath = epub->getPath();
     const size_t lastSlash = srcEpubPath.rfind('/');

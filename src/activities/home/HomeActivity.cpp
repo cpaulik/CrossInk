@@ -36,7 +36,7 @@
 
 namespace {
 constexpr uint32_t CAROUSEL_CACHE_MAGIC = 0x43434152;  // "CCAR"
-constexpr uint16_t CAROUSEL_CACHE_VERSION = 2;
+constexpr uint16_t CAROUSEL_CACHE_VERSION = 3;
 constexpr char CAROUSEL_CACHE_PATH[] = "/.crosspoint/home_carousel_cache.bin";
 constexpr char CAROUSEL_CACHE_TMP_PATH[] = "/.crosspoint/home_carousel_cache.tmp";
 
@@ -186,7 +186,7 @@ std::vector<HomeMenuItem> buildHomeMenuItems(bool hasOpdsServers, bool hasWallab
     items.push_back({tr(STR_OPDS_BROWSER), Library, HomeMenuAction::OpdsBrowser});
   }
   if (hasWallabagServers) {
-    items.push_back({tr(STR_WALLABAG), Library, HomeMenuAction::WallabagBrowser});
+    items.push_back({tr(STR_WALLABAG), Wallabag, HomeMenuAction::WallabagBrowser});
   }
   if (hasReadingStats) {
     items.push_back({tr(STR_READING_STATS), Chart, HomeMenuAction::ReadingStats});
@@ -210,7 +210,7 @@ std::vector<HomeMenuItem> buildMinimalMenuItems(bool hasOpdsServers, bool hasWal
     items.push_back({tr(STR_OPDS_BROWSER), Library, HomeMenuAction::OpdsBrowser});
   }
   if (hasWallabagServers) {
-    items.push_back({tr(STR_WALLABAG), Library, HomeMenuAction::WallabagBrowser});
+    items.push_back({tr(STR_WALLABAG), Wallabag, HomeMenuAction::WallabagBrowser});
   }
   if (hasBookmarks) {
     items.push_back({tr(STR_BOOKMARKS), BookmarkIcon, HomeMenuAction::Bookmarks});
@@ -274,13 +274,19 @@ void appendCarouselCoverStateToKey(std::string& key, const RecentBook& book) {
   }
 }
 
-void buildCarouselCacheKey(const std::vector<RecentBook>& recentBooks, std::string& key, uint64_t& keyHash) {
+void buildCarouselCacheKey(const std::vector<RecentBook>& recentBooks, bool hasOpdsServers, bool hasWallabagServers,
+                           std::string& key, uint64_t& keyHash) {
   key.clear();
   key.reserve(512);
   for (const auto& book : recentBooks) {
     appendCarouselCoverStateToKey(key, book);
   }
   appendHashedFileStateToKey(key, "/.crosspoint/global_stats.bin");
+  // Server-presence affects the menu row layout — fold it into the cache key so
+  // toggling servers regenerates the cached carousel frame.
+  key += hasOpdsServers ? "o1" : "o0";
+  key += hasWallabagServers ? "w1" : "w0";
+  key += '\0';
   keyHash = fnvHash64(key);
 }
 
@@ -303,13 +309,14 @@ bool readCarouselCacheHeader(FsFile& file, CarouselCacheHeader& header) {
   return true;
 }
 
-bool hasValidCarouselDiskCache(const std::vector<RecentBook>& recentBooks, const GfxRenderer& renderer) {
+bool hasValidCarouselDiskCache(const std::vector<RecentBook>& recentBooks, bool hasOpdsServers,
+                               bool hasWallabagServers, const GfxRenderer& renderer) {
   const int bookCount = static_cast<int>(recentBooks.size());
   if (bookCount <= 0) return false;
 
   std::string cacheKey;
   uint64_t cacheKeyHash = 0;
-  buildCarouselCacheKey(recentBooks, cacheKey, cacheKeyHash);
+  buildCarouselCacheKey(recentBooks, hasOpdsServers, hasWallabagServers, cacheKey, cacheKeyHash);
 
   FsFile cacheFile;
   if (!Storage.openFileForRead("HOME", CAROUSEL_CACHE_PATH, cacheFile)) {
@@ -380,6 +387,9 @@ int HomeActivity::getMenuItemCount() const {
     count++;  // Continue Reading menu item
   }
   if (hasOpdsServers) {
+    count++;
+  }
+  if (hasWallabagServers) {
     count++;
   }
   if (hasReadingStats) {
@@ -655,7 +665,7 @@ void HomeActivity::onEnter() {
   }
   updateHighlightedBookContext();
 
-  if (isCarouselTheme && hasValidCarouselDiskCache(recentBooks, renderer)) {
+  if (isCarouselTheme && hasValidCarouselDiskCache(recentBooks, hasOpdsServers, hasWallabagServers, renderer)) {
     preRenderCarouselFrames(false);
   }
 
@@ -1009,7 +1019,7 @@ bool HomeActivity::preRenderCarouselFrames(bool showProgressPopup) {
   // reuse a stale snapshot built before carousel-sized thumbs existed.
   std::string newKey;
   uint64_t newKeyHash = 0;
-  buildCarouselCacheKey(recentBooks, newKey, newKeyHash);
+  buildCarouselCacheKey(recentBooks, hasOpdsServers, hasWallabagServers, newKey, newKeyHash);
 
   // Cache hit: same books in same order — reuse without any SD reads
   if (newKey == gCarouselCache.key && gCarouselCache.frameCount > 0) {

@@ -27,6 +27,11 @@ void RecentBooksStore::addBook(const std::string& path, const std::string& title
 
 void RecentBooksStore::addOrUpdateBook(const std::string& path, const std::string& title, const std::string& author,
                                        const std::string& coverBmpPath) {
+  // Wallabag articles are ephemeral — they are auto-deleted on reader exit and
+  // should never pollute the recents carousel.
+  if (path.rfind("/wallabag/", 0) == 0) {
+    return;
+  }
   auto it =
       std::find_if(recentBooks.begin(), recentBooks.end(), [&](const RecentBook& book) { return book.path == path; });
   if (it != recentBooks.end()) {

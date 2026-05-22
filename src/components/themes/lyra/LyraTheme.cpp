@@ -30,6 +30,7 @@
 #include "components/icons/settings2.h"
 #include "components/icons/text24.h"
 #include "components/icons/transfer.h"
+#include "components/icons/wallabag.h"
 #include "components/icons/wifi.h"
 #include "fontIds.h"
 
@@ -80,6 +81,8 @@ const uint8_t* LyraTheme::iconForName(UIIcon icon, uint32_t size) {
         return TransferIcon;
       case UIIcon::Library:
         return LibraryIcon;
+      case UIIcon::Wallabag:
+        return WallabagIcon;
       case UIIcon::Wifi:
         return WifiIcon;
       case UIIcon::Hotspot:
