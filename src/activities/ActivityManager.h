@@ -93,6 +93,7 @@ class ActivityManager {
   void goToFileBrowser(std::string path = {});
   void goToRecentBooks();
   void goToBrowser();
+  void goToWallabagBrowser();
   void goToReader(std::string path, bool suppressBackRelease = false);
   void goToSleep();
   void goToBoot();

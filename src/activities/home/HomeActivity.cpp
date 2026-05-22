@@ -26,6 +26,7 @@
 #include "CrossPointState.h"
 #include "MappedInputManager.h"
 #include "OpdsServerStore.h"
+#include "WallabagServerStore.h"
 #include "RecentBookProgress.h"
 #include "RecentBooksStore.h"
 #include "components/UITheme.h"
@@ -44,6 +45,7 @@ enum class HomeMenuAction {
   ContinueReading,
   RecentBooks,
   OpdsBrowser,
+  WallabagBrowser,
   ReadingStats,
   Bookmarks,
   FileTransfer,
@@ -173,7 +175,8 @@ bool ensureReusableCoverPath(RecentBook& book) {
   return true;
 }
 
-std::vector<HomeMenuItem> buildHomeMenuItems(bool hasOpdsServers, bool hasReadingStats, bool hasBookmarks) {
+std::vector<HomeMenuItem> buildHomeMenuItems(bool hasOpdsServers, bool hasWallabagServers, bool hasReadingStats,
+                                             bool hasBookmarks) {
   std::vector<HomeMenuItem> items = {
       {tr(STR_BROWSE_FILES), Folder, HomeMenuAction::BrowseFiles},
       {tr(STR_MENU_RECENT_BOOKS), Recent, HomeMenuAction::RecentBooks},
@@ -181,6 +184,9 @@ std::vector<HomeMenuItem> buildHomeMenuItems(bool hasOpdsServers, bool hasReadin
 
   if (hasOpdsServers) {
     items.push_back({tr(STR_OPDS_BROWSER), Library, HomeMenuAction::OpdsBrowser});
+  }
+  if (hasWallabagServers) {
+    items.push_back({tr(STR_WALLABAG), Library, HomeMenuAction::WallabagBrowser});
   }
   if (hasReadingStats) {
     items.push_back({tr(STR_READING_STATS), Chart, HomeMenuAction::ReadingStats});
@@ -194,13 +200,17 @@ std::vector<HomeMenuItem> buildHomeMenuItems(bool hasOpdsServers, bool hasReadin
   return items;
 }
 
-std::vector<HomeMenuItem> buildMinimalMenuItems(bool hasOpdsServers, bool hasReadingStats, bool hasBookmarks) {
+std::vector<HomeMenuItem> buildMinimalMenuItems(bool hasOpdsServers, bool hasWallabagServers, bool hasReadingStats,
+                                                bool hasBookmarks) {
   std::vector<HomeMenuItem> items = {
       {tr(STR_MENU_RECENT_BOOKS), Recent, HomeMenuAction::RecentBooks},
   };
 
   if (hasOpdsServers) {
     items.push_back({tr(STR_OPDS_BROWSER), Library, HomeMenuAction::OpdsBrowser});
+  }
+  if (hasWallabagServers) {
+    items.push_back({tr(STR_WALLABAG), Library, HomeMenuAction::WallabagBrowser});
   }
   if (hasBookmarks) {
     items.push_back({tr(STR_BOOKMARKS), BookmarkIcon, HomeMenuAction::Bookmarks});
@@ -609,6 +619,8 @@ void HomeActivity::onEnter() {
   Activity::onEnter();
 
   hasOpdsServers = OPDS_STORE.hasServers();
+  WALLABAG_STORE.loadFromFile();
+  hasWallabagServers = WALLABAG_STORE.hasServers();
   const bool isCarouselTheme =
       static_cast<CrossPointSettings::UI_THEME>(SETTINGS.uiTheme) == CrossPointSettings::UI_THEME::LYRA_CAROUSEL;
 
@@ -811,7 +823,7 @@ void HomeActivity::renderCarouselFrameToCurrentBuffer(int bookIdx, BookReadingSt
       dummy2, dummy3, []() { return true; }, frameStatsPtr, frameProgressPercent);
 
   const bool frameHasReadingStats = hasAnyBookStats(frameStats) || hasAnyGlobalStats(globalStats);
-  const auto menuItems = buildHomeMenuItems(hasOpdsServers, frameHasReadingStats, hasBookmarks);
+  const auto menuItems = buildHomeMenuItems(hasOpdsServers, hasWallabagServers, frameHasReadingStats, hasBookmarks);
   GUI.drawButtonMenu(
       renderer,
       Rect{0, metrics.homeTopPadding + metrics.homeCoverTileHeight + metrics.verticalSpacing, pageWidth,
@@ -1089,7 +1101,7 @@ void HomeActivity::loop() {
     }
 
     if (minimalMenuOpen) {
-      const auto menuItems = buildMinimalMenuItems(hasOpdsServers, hasReadingStats, hasBookmarks);
+      const auto menuItems = buildMinimalMenuItems(hasOpdsServers, hasWallabagServers, hasReadingStats, hasBookmarks);
       const int menuCount = static_cast<int>(menuItems.size());
       if (menuCount <= 0) {
         minimalMenuOpen = false;
@@ -1126,6 +1138,9 @@ void HomeActivity::loop() {
             break;
           case HomeMenuAction::OpdsBrowser:
             onOpdsBrowserOpen();
+            break;
+          case HomeMenuAction::WallabagBrowser:
+            onWallabagBrowserOpen();
             break;
           case HomeMenuAction::ReadingStats:
             onReadingStatsOpen();
@@ -1218,7 +1233,7 @@ void HomeActivity::loop() {
   if (isCarousel) {
     const int bookCount = static_cast<int>(recentBooks.size());
     const int menuItemCount =
-        static_cast<int>(buildHomeMenuItems(hasOpdsServers, hasReadingStats, hasBookmarks).size());
+        static_cast<int>(buildHomeMenuItems(hasOpdsServers, hasWallabagServers, hasReadingStats, hasBookmarks).size());
     const bool inCarouselRow = (selectorIndex < bookCount);
     const int menuIdx = inCarouselRow ? 0 : (selectorIndex - bookCount);
 
@@ -1277,7 +1292,7 @@ void HomeActivity::loop() {
       return;
     }
 
-    auto menuItems = buildHomeMenuItems(hasOpdsServers, hasReadingStats, hasBookmarks);
+    auto menuItems = buildHomeMenuItems(hasOpdsServers, hasWallabagServers, hasReadingStats, hasBookmarks);
     if (metrics.homeContinueReadingInMenu && !recentBooks.empty()) {
       menuItems.insert(menuItems.begin(), {tr(STR_CONTINUE_READING), Book, HomeMenuAction::ContinueReading});
     }
@@ -1298,6 +1313,9 @@ void HomeActivity::loop() {
         break;
       case HomeMenuAction::OpdsBrowser:
         onOpdsBrowserOpen();
+        break;
+      case HomeMenuAction::WallabagBrowser:
+        onWallabagBrowserOpen();
         break;
       case HomeMenuAction::ReadingStats:
         onReadingStatsOpen();
@@ -1325,7 +1343,7 @@ void HomeActivity::render(RenderLock&&) {
 
     if (minimalMenuOpen) {
       GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.homeTopPadding}, nullptr);
-      const auto menuItems = buildMinimalMenuItems(hasOpdsServers, hasReadingStats, hasBookmarks);
+      const auto menuItems = buildMinimalMenuItems(hasOpdsServers, hasWallabagServers, hasReadingStats, hasBookmarks);
       GUI.drawButtonMenu(
           renderer, Rect{0, metrics.homeTopPadding, pageWidth, pageHeight - metrics.homeTopPadding},
           static_cast<int>(menuItems.size()), minimalMenuIndex,
@@ -1390,7 +1408,7 @@ void HomeActivity::render(RenderLock&&) {
       GUI.drawCarouselBorder(renderer, Rect{0, metrics.homeTopPadding, pageWidth, metrics.homeCoverTileHeight},
                              recentBooks, centerIdx, inCarouselRow);
       if (!inCarouselRow) {
-        const auto menuItems = buildHomeMenuItems(hasOpdsServers, hasReadingStats, hasBookmarks);
+        const auto menuItems = buildHomeMenuItems(hasOpdsServers, hasWallabagServers, hasReadingStats, hasBookmarks);
         if (static_cast<CrossPointSettings::UI_THEME>(SETTINGS.uiTheme) ==
             CrossPointSettings::UI_THEME::LYRA_CAROUSEL) {
           static_cast<const LyraCarouselTheme&>(GUI).drawButtonMenuSelectionOverlay(
@@ -1427,7 +1445,7 @@ void HomeActivity::render(RenderLock&&) {
                           std::bind(&HomeActivity::storeCoverBuffer, this),
                           hasAnyBookStats(currentBookStats) ? &currentBookStats : nullptr, currentBookProgressPercent);
 
-  auto menuItems = buildHomeMenuItems(hasOpdsServers, hasReadingStats, hasBookmarks);
+  auto menuItems = buildHomeMenuItems(hasOpdsServers, hasWallabagServers, hasReadingStats, hasBookmarks);
 
   const int menuStartY = metrics.homeTopPadding + metrics.homeCoverTileHeight + metrics.homeMenuTopOffset;
   const int menuEndY = pageHeight - metrics.buttonHintsHeight;
@@ -1521,6 +1539,8 @@ void HomeActivity::onSettingsOpen() { activityManager.goToSettings(); }
 void HomeActivity::onFileTransferOpen() { activityManager.goToFileTransfer(); }
 
 void HomeActivity::onOpdsBrowserOpen() { activityManager.goToBrowser(); }
+
+void HomeActivity::onWallabagBrowserOpen() { activityManager.goToWallabagBrowser(); }
 
 void HomeActivity::onReadingStatsOpen() {
   const int highlightedBookIdx = getHighlightedBookIndex();

@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Added a Wallabag integration. Configure one or more Wallabag servers under Settings > System > Wallabag Servers. The home screen and Settings then expose a "Wallabag" browser that lists unread articles; selecting one downloads the EPUB to `/wallabag/`, marks it as read in Wallabag, and opens it in the reader.
 
 ### Fixed
 

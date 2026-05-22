@@ -6,9 +6,11 @@
 
 #include "CrossPointState.h"
 #include "OpdsServerStore.h"
+#include "WallabagServerStore.h"
 #include "boot_sleep/BootActivity.h"
 #include "boot_sleep/SleepActivity.h"
 #include "browser/OpdsBookBrowserActivity.h"
+#include "browser/WallabagBrowserActivity.h"
 #include "home/AlertActivity.h"
 #include "home/CrashActivity.h"
 #include "home/FileBrowserActivity.h"
@@ -18,6 +20,7 @@
 #include "network/CrossPointWebServerActivity.h"
 #include "reader/ReaderActivity.h"
 #include "settings/OpdsServerListActivity.h"
+#include "settings/WallabagServerListActivity.h"
 #include "settings/SettingsActivity.h"
 #include "util/FullScreenMessageActivity.h"
 
@@ -209,6 +212,15 @@ void ActivityManager::goToBrowser() {
     replaceActivity(std::make_unique<OpdsBookBrowserActivity>(renderer, mappedInput, servers[0]));
   } else {
     replaceActivity(std::make_unique<OpdsServerListActivity>(renderer, mappedInput, true));
+  }
+}
+
+void ActivityManager::goToWallabagBrowser() {
+  const auto& servers = WALLABAG_STORE.getServers();
+  if (servers.size() == 1) {
+    replaceActivity(std::make_unique<WallabagBrowserActivity>(renderer, mappedInput, servers[0]));
+  } else {
+    replaceActivity(std::make_unique<WallabagServerListActivity>(renderer, mappedInput, true));
   }
 }
 

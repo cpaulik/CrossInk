@@ -31,6 +31,7 @@ class HomeActivity final : public Activity {
   bool hasReadingStats = false;
   bool hasBookmarks = false;
   bool hasOpdsServers = false;
+  bool hasWallabagServers = false;
   bool minimalMenuOpen = false;
   bool minimalSuppressInitialFrontRelease = false;
   int minimalMenuIndex = 0;
@@ -59,6 +60,7 @@ class HomeActivity final : public Activity {
   void onSettingsOpen();
   void onFileTransferOpen();
   void onOpdsBrowserOpen();
+  void onWallabagBrowserOpen();
   void onReadingStatsOpen();
   void onBookmarksOpen();
 

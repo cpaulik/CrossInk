@@ -17,6 +17,7 @@
 #include "OpdsServerStore.h"
 #include "RecentBooksStore.h"
 #include "SettingsList.h"
+#include "WallabagServerStore.h"
 #include "WifiCredentialStore.h"
 
 // Convert legacy settings.
@@ -440,5 +441,62 @@ bool JsonSettingsIO::loadOpds(OpdsServerStore& store, const char* json, bool* ne
   }
 
   LOG_DBG("OPS", "Loaded %zu OPDS servers from file", store.servers.size());
+  return true;
+}
+
+// ---- WallabagServerStore ----
+// Mirrors the OPDS server layout. Both `client_secret` and `password` are
+// obfuscated on disk because either grants full account access.
+
+bool JsonSettingsIO::saveWallabag(const WallabagServerStore& store, const char* path) {
+  JsonDocument doc;
+  JsonArray arr = doc["servers"].to<JsonArray>();
+  for (const auto& server : store.getServers()) {
+    JsonObject obj = arr.add<JsonObject>();
+    obj["name"] = server.name;
+    obj["url"] = server.url;
+    obj["client_id"] = server.clientId;
+    obj["client_secret_obf"] = obfuscation::obfuscateToBase64(server.clientSecret);
+    obj["username"] = server.username;
+    obj["password_obf"] = obfuscation::obfuscateToBase64(server.password);
+  }
+  String json;
+  serializeJson(doc, json);
+  return Storage.writeFile(path, json);
+}
+
+bool JsonSettingsIO::loadWallabag(WallabagServerStore& store, const char* json, bool* needsResave) {
+  if (needsResave) *needsResave = false;
+  JsonDocument doc;
+  auto error = deserializeJson(doc, json);
+  if (error) {
+    LOG_ERR("WB", "JSON parse error: %s", error.c_str());
+    return false;
+  }
+
+  store.servers.clear();
+  JsonArray arr = doc["servers"].as<JsonArray>();
+  for (JsonObject obj : arr) {
+    if (store.servers.size() >= WallabagServerStore::MAX_SERVERS) break;
+    WallabagServer server;
+    server.name = obj["name"] | std::string("");
+    server.url = obj["url"] | std::string("");
+    server.clientId = obj["client_id"] | std::string("");
+    server.username = obj["username"] | std::string("");
+    bool ok = false;
+    server.clientSecret = obfuscation::deobfuscateFromBase64(obj["client_secret_obf"] | "", &ok);
+    if (!ok || server.clientSecret.empty()) {
+      server.clientSecret = obj["client_secret"] | std::string("");
+      if (!server.clientSecret.empty() && needsResave) *needsResave = true;
+    }
+    server.password = obfuscation::deobfuscateFromBase64(obj["password_obf"] | "", &ok);
+    if (!ok || server.password.empty()) {
+      server.password = obj["password"] | std::string("");
+      if (!server.password.empty() && needsResave) *needsResave = true;
+    }
+    store.servers.push_back(std::move(server));
+  }
+
+  LOG_DBG("WB", "Loaded %zu Wallabag servers from file", store.servers.size());
   return true;
 }

@@ -1,0 +1,12 @@
+{
+  "servers": [
+    {
+      "name": "My Wallabag",
+      "url": "http://wallabag.paulik.home",
+      "client_id": "1_30rf6kl1f7ac8w0kw4wogok4w44k844sck4ogoww4ww40c8k40",
+      "client_secret": "54canabwclc0g480s8ocw4ssg00kwcows00k44g8k8488oookk",
+      "username": "cpaulik",
+      "password": "yzv2CEP3qnz4aze@rxr"
+    }
+  ]
+}
